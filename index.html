@@ -1,29 +1,205 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Mô phỏng giá cổ phiếu</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
-  <style>
-    body { margin:0; background:#000000; color:#74a5ff; font-family:'Playfair Display',Arial,sans-serif; text-align:center; }
-    header { padding:24px 16px 8px; }
-    h1 { margin:0 0 8px; font-size:1.8rem; font-family:'Playfair Display',Georgia,serif; }
-    p { margin:0; color:#bedcfc; }
-    video { width:95%; max-width:950px; margin:20px 0; border-radius:8px; }
-    footer { padding:16px; color:#bedcfc; font-size:.9rem; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mô phỏng và phân tích giá cổ phiếu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#05070b;--panel:#0d1219;--line:#1c2735;--ink:#e6eefc;--muted:#9fb4d3;--accent:#74a5ff;--green:#56d6a0;--red:#ff7777}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 1rem/1.6 Inter,Arial,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:0 18px}
+header{padding:34px 0 22px;text-align:center}
+h1,h2,h3{font-family:"Playfair Display",Georgia,serif;font-weight:700;margin:0}
+h1{font-size:clamp(1.8rem,4.5vw,2.7rem);line-height:1.2;color:var(--accent)}
+header p{margin:10px auto 0;color:var(--muted)}
+.video{max-width:900px;margin:0 auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:9px}
+video{display:block;width:100%;max-height:72vh;border-radius:8px;background:#000}
+.viewer{margin:30px 0}
+h2{font-size:1.4rem;margin-bottom:14px;text-align:center}
+[role=tablist]{display:flex;justify-content:center;gap:7px;flex-wrap:wrap;margin-bottom:14px}
+[role=tab]{font:500 .9rem Inter,Arial,sans-serif;color:var(--muted);background:transparent;border:1px solid var(--line);border-radius:999px;padding:8px 14px;cursor:pointer}
+[role=tab]:hover{color:var(--ink);border-color:var(--accent)}
+[role=tab][aria-selected=true]{background:var(--accent);border-color:var(--accent);color:#05070b}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:clamp(14px,3vw,22px);animation:swap .22s ease}
+@keyframes swap{from{opacity:.45}to{opacity:1}}
+.panel h3{font-size:1.3rem;color:var(--accent)}
+.ask{margin:5px 0 18px;color:var(--muted);font-size:.92rem}
+.blocks{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:18px}
+.blocks .full{grid-column:1/-1}
+.blk h4{margin:0 0 8px;font:600 .92rem Inter,Arial,sans-serif}
+figure{margin:0;background:#fff;border-radius:9px;padding:7px;cursor:zoom-in}
+figure img{display:block;width:100%;height:auto;min-height:80px}
+.missing{display:grid;place-items:center;min-height:110px;border:1px dashed var(--line);border-radius:8px;color:var(--muted);font-size:.87rem;text-align:center;padding:14px}
+.tw{overflow:auto;border:1px solid var(--line);border-radius:8px}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th,td{padding:8px 11px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{background:#111a26;color:var(--accent);font-weight:600}
+tbody tr:nth-child(even){background:#0a1018}
+tr:last-child td{border-bottom:0}
+.note{margin:18px 0 0;padding:12px 15px;border-left:3px solid var(--accent);background:#0a0f16;border-radius:0 8px 8px 0;color:var(--muted)}
+.note b{color:var(--ink);font-weight:600}
+.status{font-size:.82rem;color:var(--muted);margin-top:8px}
+dialog{border:0;padding:0;background:transparent;max-width:min(96vw,1200px)}
+dialog::backdrop{background:rgba(0,0,0,.88)}
+dialog img{display:block;max-width:100%;max-height:90vh;background:#fff;border-radius:8px;margin:auto}
+footer{padding:20px 0 30px;text-align:center;color:var(--muted);font-size:.85rem}
+@media(max-width:600px){.wrap{padding:0 12px}header{padding-top:26px}.video{padding:5px}.panel{padding:13px}[role=tab]{font-size:.82rem;padding:7px 11px}}
+@media(prefers-reduced-motion:reduce){.panel{animation:none}}
+</style>
 </head>
 <body>
+<div class="wrap">
   <header>
     <h1>Giá cổ phiếu trong 365 ngày</h1>
-    <p>Biên độ giá ±10% so với giá tham chiếu</p>
+    <p>Mô phỏng biến động giá với biên độ ±10% so với giá tham chiếu.</p>
   </header>
-  <video controls preload="metadata">
-    <source src="stock.mp4" type="video/mp4">
-  </video>
-  <footer>Thực hiện bởi: Trần Nguyễn Diệu Linh</footer>
+
+  <section class="video" aria-label="Video mô phỏng giá cổ phiếu">
+    <video controls preload="metadata">
+      <source src="stock.mp4" type="video/mp4">
+      Trình duyệt của bạn không hỗ trợ phát video.
+    </video>
+  </section>
+
+  <section class="viewer">
+    <h2>Kết quả phân tích dữ liệu</h2>
+    <div role="tablist" aria-label="Chọn nội dung phân tích" id="tabs"></div>
+    <div class="panel" id="panel" aria-live="polite"></div>
+  </section>
+  <footer>© DiLi · Mô phỏng và phân tích giá cổ phiếu</footer>
+</div>
+<dialog id="zoom" aria-label="Xem ảnh biểu đồ phóng to"><img id="zoomImg" alt=""></dialog>
+
+<script>
+/* Các đường dẫn dưới đây khớp với tên file do phantich.py tạo trong output/. */
+const OUT = "output/";
+const sections = [
+  {tab:"Theo tháng",title:"Giá trung bình và độ biến động theo tháng",
+   blocks:[
+    {kind:"table",full:true,src:"cau1_thang.csv",cap:"Thống kê giá theo tháng"},
+    {kind:"img",src:"cau1_cot_trung_binh.png",alt:"Biểu đồ cột giá đóng cửa trung bình từng tháng",cap:"Giá đóng cửa trung bình mỗi tháng"},
+    {kind:"img",src:"cau1_boxplot.png",alt:"Boxplot giá đóng cửa từng tháng",cap:"Phân bố giá đóng cửa theo tháng"}
+   ],
+   note:"Hộp càng cao thì mặt bằng giá càng cao; hộp/râu càng dài thì giá càng phân tán. Chấm nằm ngoài râu thường là giá ngoại lệ."},
+  {tab:"Theo quý",title:"Biến động giá theo quý",
+   ask:"So sánh giá trung bình, độ lệch chuẩn, biên độ và hệ số biến động giữa các quý.",
+   blocks:[{kind:"table",full:true,src:"cau2_quy.csv"}],
+   note:"Hệ số biến động càng cao thì mức dao động tương đối so với giá trung bình càng lớn. Biên độ là giá cao nhất trừ giá thấp nhất trong quý."},
+  {tab:"Ngày bất thường",title:"Ngày giao dịch bất thường",
+   ask:"Danh sách ngày giá đóng cửa bằng giá trần, giá sàn hoặc giá tham chiếu theo tiêu chí trong chương trình.",
+   blocks:[{kind:"table",full:true,src:"cau3_ngay_bat_thuong.csv"}]},
+  {tab:"Phân bố giá",title:"Phân bố giá nửa đầu và nửa cuối năm",
+   ask:"So sánh phân bố giá đóng cửa của Quý 1 + Quý 2 với Quý 3 + Quý 4.",
+   blocks:[
+    {kind:"img",full:true,src:"cau4_histogram.png",alt:"Histogram so sánh phân bố giá nửa đầu và nửa cuối năm"},
+    {kind:"table",full:true,src:"cau4_thong_ke.csv",cap:"Bảng thống kê hai nửa năm"}
+   ],
+   note:"Mỗi cột histogram biểu diễn số ngày có giá đóng cửa nằm trong một khoảng giá. Hai biểu đồ dùng cùng khoảng chia nên có thể so sánh trực tiếp vị trí và độ trải rộng của phân bố."},
+  {tab:"Xu hướng năm",title:"Xu hướng giá và biên độ dao động cả năm",
+   blocks:[
+    {kind:"img",full:true,src:"cau5_xu_huong.png",alt:"Biểu đồ xu hướng giá cổ phiếu cả năm"},
+    {kind:"table",full:true,src:"cau5_tom_tat.csv",cap:"Tóm tắt các chỉ tiêu chính"}
+   ]}
+];
+
+const tabs=document.getElementById("tabs"),panel=document.getElementById("panel");
+const zoom=document.getElementById("zoom"),zoomImg=document.getElementById("zoomImg");
+const status=document.getElementById("status");
+const el=(tag,cls,text)=>{const node=document.createElement(tag);if(cls)node.className=cls;if(text!==undefined&&text!==null)node.textContent=text;return node;};
+
+function parseCSV(text){
+  const rows=[];let row=[],cell="",quoted=false;
+  text=text.replace(/^\uFEFF/,"");
+  for(let i=0;i<text.length;i++){
+    const c=text[i],next=text[i+1];
+    if(c==='"'&&quoted&&next==='"'){cell+='"';i++;}
+    else if(c==='"'){quoted=!quoted;}
+    else if(c===","&&!quoted){row.push(cell);cell="";}
+    else if((c==="\n"||c==="\r")&&!quoted){
+      if(c==="\r"&&next==="\n")i++;
+      row.push(cell);if(row.some(v=>v.trim()!==""))rows.push(row);
+      row=[];cell="";
+    }else cell+=c;
+  }
+  if(cell.length||row.length){row.push(cell);if(row.some(v=>v.trim()!==""))rows.push(row);}
+  return rows;
+}
+function formatCell(value){
+  const v=String(value??"").trim();
+  if(v==="")return "—";
+  // Chỉ định dạng số đơn giản; giữ nguyên ngày tháng và văn bản.
+  if(/^[-+]?\d+(\.\d+)?$/.test(v)){
+    const n=Number(v);
+    return n.toLocaleString("vi-VN",{maximumFractionDigits:2});
+  }
+  return v;
+}
+async function makeTable(block){
+  const wrap=el("div","tw");
+  try{
+    const response=await fetch(OUT+block.src);
+    if(!response.ok)throw new Error("Không tìm thấy "+block.src);
+    const rows=parseCSV(await response.text());
+    if(rows.length<1)throw new Error("File CSV chưa có dữ liệu");
+    const table=el("table"),thead=el("thead"),tr=el("tr");
+    rows[0].forEach(name=>tr.appendChild(el("th","",name)));
+    thead.appendChild(tr);table.appendChild(thead);
+    const tbody=el("tbody");
+    rows.slice(1).forEach(r=>{
+      const line=el("tr");
+      rows[0].forEach((_,i)=>line.appendChild(el("td","",formatCell(r[i]??""))));
+      tbody.appendChild(line);
+    });
+    table.appendChild(tbody);wrap.appendChild(table);
+  }catch(err){
+    return el("div","missing","Chưa tải được bảng "+block.src+". Hãy chạy phantich.py và kiểm tra thư mục output/.");
+  }
+  return wrap;
+}
+function makeImage(block){
+  const figure=el("figure"),img=new Image();
+  img.src=OUT+block.src;img.alt=block.alt||"";img.loading="lazy";
+  img.onerror=()=>figure.replaceWith(el("div","missing","Chưa có ảnh "+block.src+". Hãy chạy phantich.py để tạo biểu đồ."));
+  figure.appendChild(img);
+  figure.addEventListener("click",()=>{if(img.complete&&img.naturalWidth){zoomImg.src=img.src;zoomImg.alt=img.alt;zoom.showModal();}});
+  return figure;
+}
+async function show(index){
+  const section=sections[index];
+  panel.style.animation="none";void panel.offsetWidth;panel.style.animation="";
+  panel.replaceChildren(el("h3","",section.title),el("p","ask",section.ask));
+  const grid=el("div","blocks");panel.appendChild(grid);
+  const jobs=section.blocks.map(async block=>{
+    const item=el("div","blk"+(block.full?" full":""));
+    if(block.cap)item.appendChild(el("h4","",block.cap));
+    const content=block.kind==="img"?makeImage(block):await makeTable(block);
+    item.appendChild(content);grid.appendChild(item);
+  });
+  await Promise.all(jobs);
+  panel.appendChild(el("p","note",section.note));
+  [...tabs.children].forEach((button,i)=>{button.setAttribute("aria-selected",String(i===index));button.tabIndex=i===index?0:-1;});
+}
+sections.forEach((section,index)=>{
+  const button=el("button","",section.tab);button.type="button";button.setAttribute("role","tab");
+  button.setAttribute("aria-selected",String(index===0));button.tabIndex=index===0?0:-1;
+  button.addEventListener("click",()=>show(index));
+  button.addEventListener("keydown",event=>{
+    const direction=event.key==="ArrowRight"?1:event.key==="ArrowLeft"?-1:0;
+    if(!direction)return;
+    event.preventDefault();const next=(index+direction+sections.length)%sections.length;
+    show(next);tabs.children[next].focus();
+  });
+  tabs.appendChild(button);
+});
+zoom.addEventListener("click",event=>{if(event.target===zoom)zoom.close();});
+document.addEventListener("keydown",event=>{if(event.key==="Escape"&&zoom.open)zoom.close();});
+show(0);
+</script>
 </body>
 </html>
