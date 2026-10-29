@@ -1,18 +1,3 @@
-"""
-phantich.py - Phân tích giá cổ phiếu (câu 1 -> 5) và LƯU TOÀN BỘ kết quả.
-
-Chạy:  python phantich.py
-Kết quả nằm trong thư mục output/ (cạnh dulieu.py):
-    cau1_thang.csv               bảng thống kê theo tháng
-    cau1_cot_trung_binh.png      biểu đồ cột giá trung bình từng tháng
-    cau1_boxplot.png             boxplot giá từng tháng
-    cau2_quy.csv                 bảng thống kê theo quý
-    cau3_ngay_bat_thuong.csv     các ngày giao dịch bất thường
-    cau4_histogram.png           phân bố giá 2 quý đầu vs 2 quý cuối
-    cau4_thong_ke.csv            thống kê 2 nửa năm
-    cau5_xu_huong.png            biểu đồ xu hướng cả năm
-    cau5_tom_tat.csv             tóm tắt xu hướng + biên độ lớn nhất
-"""
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -20,22 +5,15 @@ import matplotlib.dates as mdates
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
-from dulieu import CSV_FILE, OUT_DIR, LIMIT, REF_DAY1, load_stock_data
+from dulieu import OUT_DIR, LIMIT, load_stock_data
 
 pd.set_option("display.width", 200)
 pd.set_option("display.max_columns", None)
 pd.set_option("display.max_rows", None)
 
-# ====================== CẤU HÌNH ======================
-FILE = CSV_FILE              # lấy đường dẫn từ dulieu.py (không phụ thuộc thư mục đang chạy)
-START_DATE = "2025-01-01"    # file không có cột ngày: mỗi dòng = 1 ngày liên tiếp, 365 dòng = cả năm
-FIRST_REF = REF_DAY1         # giá tham chiếu ngày đầu tiên
-TOL = 1e-6                   # sai số khi so sánh "bằng"
-SHOW = False                 # True: vừa lưu vừa mở cửa sổ biểu đồ; False: chỉ lưu ảnh
+TOL = 1e-6
+SHOW = False
 DPI_SAVE = 200
-# ======================================================
-
-
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -47,44 +25,37 @@ def save_fig(fig, name):
         plt.show()
     plt.close(fig)
 
-
 def save_csv(df_, name, index=True):
     df_.to_csv(OUT_DIR / name, index=index, encoding="utf-8-sig")
     print(f"[Đã lưu bảng] {name}")
-
 
 def add_note(fig, text, bottom=0.10):
     """Ghi chú giải thích cách đọc biểu đồ, đặt dưới cùng của hình."""
     fig.tight_layout(rect=[0, bottom, 1, 1])
     fig.text(0.5, 0.01, text, ha="center", va="bottom", fontsize=10, color="dimgray")
 
-
-# ---------------------------------------------------------------- DỮ LIỆU
-# File không có tiêu đề: mỗi dòng = 1 ngày, 7 cột = 7 mức giá trong ngày, cột cuối = giá đóng cửa
-df = pd.read_csv(FILE, header=None, names=[f"Mức_{i}" for i in range(1, 8)])
-df["Ngày"] = pd.date_range(START_DATE, periods=len(df), freq="D")
-df["Giá"] = df["Mức_7"]                     # giá của ngày = giá đóng cửa (cột cuối)
-df["Tháng"] = df["Ngày"].dt.month
-df["Quý"] = df["Ngày"].dt.quarter
+sd = load_stock_data()
+df = pd.DataFrame(sd.prices, columns=[f"Mức_{i}" for i in range(1, sd.k + 1)])
+df["Ngày"] = sd.dates
+df["Giá"] = sd.close
+df["Tháng"] = sd.dates.month
+df["Quý"] = sd.dates.quarter
+df["Tham_chiếu"] = sd.ref
+df["Giá_trần"] = sd.ceil
+df["Giá_sàn"] = sd.floor
 months = sorted(df["Tháng"].unique())
-YEAR = df["Ngày"].dt.year.iloc[0]
-
-# Giá tham chiếu = giá đóng cửa phiên trước; trần/sàn = tham chiếu ± 10%
-df["Tham_chiếu"] = df["Giá"].shift(1)
-df.loc[0, "Tham_chiếu"] = FIRST_REF
-df["Giá_trần"] = df["Tham_chiếu"] * (1 + LIMIT)
-df["Giá_sàn"] = df["Tham_chiếu"] * (1 - LIMIT)
-
+YEAR = int(sd.dates[0].year)
+TOL = 1e-6
 
 def close_to(a, b):
-    return (a - b).abs() <= TOL * b.abs()
-
+    return np.isclose(np.asarray(a, dtype=float), np.asarray(b, dtype=float),
+                      rtol=TOL, atol=TOL)
 
 is_ceil = close_to(df["Giá"], df["Giá_trần"])
 is_floor = close_to(df["Giá"], df["Giá_sàn"])
 is_ref = close_to(df["Giá"], df["Tham_chiếu"])
 
-# ============================ CÂU 1 ============================
+#Giá trung bình và độ biến động theo tháng
 print("=" * 20, "CÂU 1: THEO THÁNG", "=" * 20)
 monthly = df.groupby("Tháng")["Giá"].agg(
     Trung_binh="mean", Do_lech_chuan="std", Thap_nhat="min", Cao_nhat="max")
@@ -155,7 +126,7 @@ iqr = df.groupby("Tháng")["Giá"].agg(lambda s: s.quantile(0.75) - s.quantile(0
 print(f"Tháng có hộp rộng nhất (IQR lớn nhất): tháng {iqr.idxmax()} ({iqr.max():.2f}) "
       f"| tháng có hộp hẹp nhất (ổn định nhất): tháng {iqr.idxmin()} ({iqr.min():.2f}).")
 
-# ============================ CÂU 2 ============================
+#Biến động giá theo quý
 print("\n" + "=" * 20, "CÂU 2: THEO QUÝ", "=" * 20)
 quarterly = df.groupby("Quý")["Giá"].agg(
     Trung_binh="mean", Do_lech_chuan="std", Thap_nhat="min", Cao_nhat="max")
@@ -173,7 +144,7 @@ print(f"- Quý biến động mạnh nhất (hệ số biến động = độ l�
 print(f"- Quý ổn định nhất: Quý {q_cv_min} ({quarterly.loc[q_cv_min, 'He_so_bien_dong_%']:.2f}%).")
 print(f"- Quý có biên độ giá lớn nhất: Quý {q_rg} ({quarterly.loc[q_rg, 'Bien_do']:.2f}).")
 
-# ============================ CÂU 3 ============================
+#Ngày bất thường
 print("\n" + "=" * 20, "CÂU 3: NGÀY GIAO DỊCH BẤT THƯỜNG", "=" * 20)
 df["Lý_do"] = ""
 df.loc[is_ceil, "Lý_do"] += "Giá = giá trần; "
@@ -191,11 +162,11 @@ else:
     print(f"\nTổng cộng {len(abnormal)} ngày bất thường.")
     save_csv(abnormal, "cau3_ngay_bat_thuong.csv", index=False)
 
-# ============================ CÂU 4 ============================
+#Phân bố giá của 2 quý đầu năm và 2 quý cuối năm
 print("\n" + "=" * 20, "CÂU 4: PHÂN BỐ GIÁ 2 QUÝ ĐẦU vs 2 QUÝ CUỐI", "=" * 20)
 h1 = df.loc[df["Quý"].isin([1, 2]), "Giá"]
 h2 = df.loc[df["Quý"].isin([3, 4]), "Giá"]
-bins = np.linspace(df["Giá"].min(), df["Giá"].max(), 21)  # cùng bin để so sánh được
+bins = np.linspace(df["Giá"].min(), df["Giá"].max(), 21)
 
 fig, axes = plt.subplots(1, 2, figsize=(14, 7), sharex=True, sharey=True)
 for ax, data, name, color in [(axes[0], h1, "Nửa đầu năm (Quý 1 + Quý 2)", "tab:blue"),
@@ -215,11 +186,13 @@ print(f"Nhận xét: 2 quý đầu: TB {h1.mean():.2f}, độ lệch chuẩn {h1
       f"khoảng {h1.min():.2f}-{h1.max():.2f}.")
 print(f"          2 quý cuối: TB {h2.mean():.2f}, độ lệch chuẩn {h2.std():.2f}, "
       f"khoảng {h2.min():.2f}-{h2.max():.2f}.")
-print(f"          Giá trung bình 2 quý cuối gấp {h2.mean() / h1.mean():.1f} lần 2 quý đầu; "
-      f"trung vị {h1.median():.2f} so với {h2.median():.2f}.")
-print(f"          2 quý đầu: giá tập trung ở vùng thấp (50% số phiên dưới {h1.median():.0f}) với đuôi kéo dài về phía giá cao "
-      f"(lệch phải) do đợt tăng mạnh cuối quý 2; 2 quý cuối nằm ở vùng giá cao hơn hẳn và trải rộng hơn "
-      f"(độ lệch chuẩn {h2.std():.0f} so với {h1.std():.0f}).")
+if h1.mean() != 0:
+    print(f"          Giá trung bình nửa cuối/nửa đầu năm: {h2.mean() / h1.mean():.2f} lần.")
+print(f"          Trung vị nửa đầu năm: {h1.median():.2f}; trung vị nửa cuối năm: {h2.median():.2f}.")
+print(f"          Độ lệch chuẩn nửa đầu năm: {h1.std():.2f}; nửa cuối năm: {h2.std():.2f}.")
+print("          Nhận xét lệch phân bố: "
+      f"nửa đầu năm {'lệch phải' if h1.skew() > 0.5 else ('lệch trái' if h1.skew() < -0.5 else 'không lệch rõ')}; "
+      f"nửa cuối năm {'lệch phải' if h2.skew() > 0.5 else ('lệch trái' if h2.skew() < -0.5 else 'không lệch rõ')}.")
 
 stats4 = pd.DataFrame({
     "Nua_dau_nam (Q1+Q2)": [len(h1), h1.mean(), h1.median(), h1.std(), h1.min(), h1.max()],
@@ -227,32 +200,25 @@ stats4 = pd.DataFrame({
 }, index=["So_ngay", "Trung_binh", "Trung_vi", "Do_lech_chuan", "Thap_nhat", "Cao_nhat"]).round(2)
 save_csv(stats4, "cau4_thong_ke.csv")
 
-# ============================ CÂU 5 ============================
+#Xu hướng cả năm
 print("\n" + "=" * 20, "CÂU 5: XU HƯỚNG CẢ NĂM", "=" * 20)
 
-# Dùng chung nguồn dữ liệu với video.py (cùng open/close/high/low/ref/floor/ceil)
-sd = load_stock_data()
-# Đổi tên cột tiếng Anh (từ dulieu.py) sang tiếng Việt - chỉ trong file này, không ảnh hưởng video.py
-daily = sd.daily_frame().rename(columns={        # 1 dòng = 1 ngày
-    "date": "Ngày", "day": "Ngày_thứ", "quarter": "Quý", "range": "Biên_độ_ngày"})
-long = sd.long_frame().rename(columns={          # 1 dòng = 1 mức giá (ngày x phiên)
-    "price": "Giá", "date": "Ngày", "day": "Ngày_thứ", "session": "Mức_giá_thứ"})
+daily = sd.daily_frame() 
+long = sd.long_frame()
 
-# --- Xu hướng chung: hồi quy tuyến tính trên giá đóng cửa
 slope, intercept = np.polyfit(sd.days, sd.close, 1)
 first, last = sd.close[0], sd.close[-1]
 change_pct = (last - first) / first * 100
-trend = "TĂNG" if slope > 0 else "GIẢM"
+trend = "TĂNG" if slope > TOL else ("GIẢM" if slope < -TOL else "ĐI NGANG")
 print(f"- Giá đầu năm {first:.2f} ({sd.dates[0].date()}) -> cuối năm {last:.2f} "
       f"({sd.dates[-1].date()}): thay đổi {change_pct:+.2f}%.")
 print(f"- Đường xu hướng tuyến tính có hệ số góc {slope:.4f}/ngày => xu hướng chung là {trend}.")
 
-# --- Cao nhất / thấp nhất: xét TẤT CẢ các mức giá trong năm (giống video.py)
-i_max, i_min = long["Giá"].idxmax(), long["Giá"].idxmin()
-p_max, p_min = long.loc[i_max, "Giá"], long.loc[i_min, "Giá"]
-d_max, d_min = long.loc[i_max, "Ngày"], long.loc[i_min, "Ngày"]
-day_max, day_min = long.loc[i_max, "Ngày_thứ"], long.loc[i_min, "Ngày_thứ"]
-ses_max, ses_min = long.loc[i_max, "Mức_giá_thứ"], long.loc[i_min, "Mức_giá_thứ"]
+i_max, i_min = long["price"].idxmax(), long["price"].idxmin()
+p_max, p_min = long.loc[i_max, "price"], long.loc[i_min, "price"]
+d_max, d_min = long.loc[i_max, "date"], long.loc[i_min, "date"]
+day_max, day_min = long.loc[i_max, "day"], long.loc[i_min, "day"]
+ses_max, ses_min = long.loc[i_max, "session"], long.loc[i_min, "session"]
 amp = p_max - p_min
 
 print(f"- Giá cao nhất: {p_max:.2f} (ngày {day_max}, {d_max:%d/%m/%Y}, mức giá thứ {ses_max}/{sd.k} trong ngày).")
@@ -261,16 +227,19 @@ print(f"- BIÊN ĐỘ DAO ĐỘNG LỚN NHẤT trong năm = {amp:.2f} ({amp / p_
       f"giữa ngày {min(day_max, day_min)} ({min(d_max, d_min):%d/%m}) và ngày {max(day_max, day_min)} "
       f"({max(d_max, d_min):%d/%m}).")
 
-# --- Thông tin bổ sung: ngày có biên độ trong ngày lớn nhất
-i_rg = daily["Biên_độ_ngày"].idxmax()
-print(f"- Biên độ trong MỘT ngày lớn nhất: {daily.loc[i_rg, 'Biên_độ_ngày']:.2f} "
-      f"(ngày {daily.loc[i_rg, 'Ngày_thứ']}, {daily.loc[i_rg, 'Ngày']:%d/%m/%Y}).")
+i_rg = daily["range"].idxmax()
+print(f"- Biên độ trong MỘT ngày lớn nhất: {daily.loc[i_rg, 'range']:.2f} "
+      f"(ngày {daily.loc[i_rg, 'day']}, {daily.loc[i_rg, 'date']:%d/%m/%Y}).")
 
-n_edge = int((np.isclose(sd.close, sd.ceil) | np.isclose(sd.close, sd.floor)).sum())
-print(f"- Biến động giữa 2 ngày liên tiếp tối đa là ±{LIMIT * 100:.0f}% (biên độ trần/sàn); "
+n_edge = int((close_to(sd.close, sd.ceil) | close_to(sd.close, sd.floor)).sum())
+within_limits = (sd.close <= sd.ceil + TOL * np.maximum(1, np.abs(sd.ceil))) & \
+                (sd.close >= sd.floor - TOL * np.maximum(1, np.abs(sd.floor)))
+print(f"- Biên độ trần/sàn được đặt ở ±{LIMIT * 100:.0f}% so với giá tham chiếu; "
       f"có {n_edge}/{sd.n} ngày đóng cửa đúng giá trần hoặc sàn.")
+if not within_limits.all():
+    print(f"  Cảnh báo: {int((~within_limits).sum())} ngày có giá đóng cửa nằm ngoài biên trần/sàn đã tính.")
 
-# --- Biểu đồ
+
 fig, ax = plt.subplots(figsize=(14, 7))
 ax.fill_between(sd.dates, sd.low, sd.high, color="steelblue", alpha=0.25,
                 label="Vùng giá trong ngày (thấp nhất - cao nhất)")
@@ -284,7 +253,6 @@ ax.scatter([d_min], [p_min], color="red", s=80, zorder=5,
 ax.axhline(p_max, color="green", linestyle=":", alpha=0.6)
 ax.axhline(p_min, color="red", linestyle=":", alpha=0.6)
 
-# mũi tên 2 đầu thể hiện biên độ lớn nhất
 x_arrow = sd.dates[-1] + pd.Timedelta(days=6)
 ax.annotate("", xy=(x_arrow, p_max), xytext=(x_arrow, p_min),
             arrowprops=dict(arrowstyle="<->", color="black", lw=1.8), annotation_clip=False)
@@ -293,7 +261,7 @@ ax.text(x_arrow + pd.Timedelta(days=3), (p_max + p_min) / 2, f"Biên độ\n{amp
 
 ax.margins(y=0.1)
 for q in [1, 2, 3, 4]:
-    start = daily.loc[daily["Quý"] == q, "Ngày"].min()
+    start = daily.loc[daily["quarter"] == q, "date"].min()
     ax.axvline(start, color="gray", linestyle="-", alpha=0.25)
     ax.text(start, ax.get_ylim()[1], f"  Quý {q}", va="top", color="gray", fontsize=10)
 ax.xaxis.set_major_locator(mdates.MonthLocator())
@@ -314,6 +282,4 @@ tom_tat = pd.DataFrame({
                 round(p_min, 2), f"{d_min:%d/%m/%Y} (ngày {day_min})", round(amp, 2)],
 })
 save_csv(tom_tat, "cau5_tom_tat.csv", index=False)
-
-# ---------------------------------------------------------------- KẾT THÚC
 print(f"\nXong. Kết quả đã lưu trong: {OUT_DIR}")

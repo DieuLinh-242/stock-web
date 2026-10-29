@@ -1,14 +1,6 @@
-"""
-video.py - Vẽ animation (hình trên: nến, hình dưới: đường giá + sàn/trần)
-và xuất ra video có nhạc nền.
-
-Chạy:  python video.py
-"""
 import subprocess
-
 import numpy as np
 import matplotlib
-
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection, PolyCollection
@@ -17,42 +9,36 @@ from matplotlib.ticker import FuncFormatter, MaxNLocator, MultipleLocator
 from dulieu import (BASE, C_CEIL, C_DOWN, C_FLOOR, C_REF, C_TXT, C_UP,
                         StockData, load_stock_data)
 
-# ----------------------------------------------------------------- CẤU HÌNH VIDEO
 MP3_FILE = BASE / "nhac.mp3"
 SILENT_MP4 = BASE / "stock_silent.mp4"
 FINAL_MP4 = BASE / "stock.mp4"
 
 FPS = 24
-DAY_REP = 4                  # mỗi ngày chiếm 4 khung -> 6 ngày/giây
+DAY_REP = 4
 W, H, DPI = 1920, 1080, 100
 
-WINDOW = 60                  # số ngày hiển thị trong cửa sổ trượt
+WINDOW = 60
 X_PAD = 4
 X_STEP = 10
 CANDLE_W = 0.7
-Y_SMOOTH = 0.25              # càng nhỏ trục Y càng mượt
+Y_SMOOTH = 0.25
 
-ZOOM_SEC = 2.5               # thời gian thu nhỏ ra cả năm
-HOLD_SEC = 3.0               # giữ khung hình cả năm
-PRESET = "veryfast"          # tốc độ mã hóa x264: ultrafast (nhanh, file to) ... slow (chậm, file nhỏ)
-CRF = 18                     # chất lượng: 18 đẹp, 23 vừa, càng cao càng nhẹ
+ZOOM_SEC = 2.5
+HOLD_SEC = 3.0
+PRESET = "veryfast"
+CRF = 18
 
-
-# ----------------------------------------------------------------- HÀM PHỤ
 def fp(v):
     return f"{v:.6f}"
 
-
 def lerp(p, q, e):
     return p + (q - p) * e
-
 
 def x_step_for(span_x):
     for step in (X_STEP, 2 * X_STEP, 2.5 * X_STEP, 5 * X_STEP):
         if span_x / step <= 16:
             return step
     return 5 * X_STEP
-
 
 def setup_style():
     plt.rcParams.update({
@@ -62,8 +48,6 @@ def setup_style():
         "xtick.major.size": 8, "ytick.major.size": 8,
     })
 
-
-# ----------------------------------------------------------------- LỚP VIDEO
 class StockVideo:
     def __init__(self, data: StockData):
         self.d = data
@@ -78,7 +62,6 @@ class StockVideo:
         self._build_figure()
         self._layout_title()
 
-    # ---------- dựng figure + các artist (chỉ chạy 1 lần)
     def _build_figure(self):
         self.fig = plt.figure(figsize=(W / DPI, H / DPI), dpi=DPI, facecolor="black")
         L, R_W = 0.07, 0.80
@@ -147,7 +130,6 @@ class StockVideo:
         self.title_txt = [self.fig.text(0.07, 0.945, "", color=c, fontsize=19,
                                         fontweight="bold") for c in colors]
 
-    # ---------- tiêu đề
     def _title_strings(self, i):
         d = self.d
         pct = (d.close[i] / d.ref[i] - 1) * 100
@@ -180,7 +162,6 @@ class StockVideo:
             t.set_text("")
             x += wd + gap
 
-    # ---------- trục Y mượt + nhãn cao/thấp nhất
     def _smooth_ylim(self, key, target):
         cur = self._ylim[key]
         new = target if cur is None else (
@@ -201,7 +182,6 @@ class StockVideo:
             txt.set_position((1.008, value)); txt.set_va("bottom")
             txt.set_text(f"{name} {fp(value)}")
 
-    # ---------- nến
     def _make_candle(self, j, span):
         d = self.d
         o, c, x = d.open[j], d.close[j], d.days[j]
@@ -215,7 +195,6 @@ class StockVideo:
         wick = [[x, d.low[j]], [x, d.high[j]]]
         return body, wick, (C_UP if c >= o else C_DOWN)
 
-    # ---------- vẽ 1 khung hình
     def _draw_top(self, i, a, span_t, s):
         d = self.d
         cands = [self._make_candle(j, span_t) for j in range(a, i + 1)]
@@ -282,7 +261,6 @@ class StockVideo:
             self.title_txt[0].set_text(head)
         self.title_txt[1].set_color(C_UP if d.close[i] >= d.ref[i] else C_DOWN)
 
-    # ---------- 3 giai đoạn của animation
     def _update_days(self, f):
         d = self.d
         i = f // DAY_REP
@@ -330,7 +308,6 @@ class StockVideo:
             self._update_zoom(f)
         return ()
 
-    # ---------- xuất video
     def _frame_key(self, f):
         """Các khung có cùng key thì hình giống hệt nhau -> chỉ cần vẽ 1 lần."""
         if f < self.day_frames:
@@ -352,12 +329,12 @@ class StockVideo:
         last_key, data, drawn = None, b"", 0
         for f in range(self.total_frames):
             key = self._frame_key(f)
-            if key != last_key:                      # khung mới -> vẽ
+            if key != last_key:
                 self.update(f)
                 self.fig.canvas.draw()
                 data = self.fig.canvas.buffer_rgba().tobytes()
                 last_key, drawn = key, drawn + 1
-            proc.stdin.write(data)                   # khung trùng -> ghi lại bản cũ
+            proc.stdin.write(data)
             if f % 24 == 0:
                 print(f"\rRender {f + 1}/{self.total_frames} (đã vẽ {drawn} hình)", end="")
         proc.stdin.close()
@@ -371,7 +348,7 @@ def add_music(total_frames):
     dur = total_frames / FPS
     out = FINAL_MP4
     k = 1
-    while True:                        # nếu stock.mp4 đang bị khóa thì ghi sang tên khác
+    while True:
         try:
             if out.exists():
                 out.unlink()

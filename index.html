@@ -86,11 +86,11 @@ const sections = [
     {kind:"img",src:"cau1_cot_trung_binh.png",alt:"Biểu đồ cột giá đóng cửa trung bình từng tháng",cap:"Giá đóng cửa trung bình mỗi tháng"},
     {kind:"img",src:"cau1_boxplot.png",alt:"Boxplot giá đóng cửa từng tháng",cap:"Phân bố giá đóng cửa theo tháng"}
    ],
-   note:"Hộp càng cao thì mặt bằng giá càng cao; hộp/râu càng dài thì giá càng phân tán. Chấm nằm ngoài râu thường là giá ngoại lệ."},
+},
   {tab:"Theo quý",title:"Biến động giá theo quý",
    ask:"So sánh giá trung bình, độ lệch chuẩn, biên độ và hệ số biến động giữa các quý.",
    blocks:[{kind:"table",full:true,src:"cau2_quy.csv"}],
-   note:"Hệ số biến động càng cao thì mức dao động tương đối so với giá trung bình càng lớn. Biên độ là giá cao nhất trừ giá thấp nhất trong quý."},
+  },
   {tab:"Ngày bất thường",title:"Ngày giao dịch bất thường",
    ask:"Danh sách ngày giá đóng cửa bằng giá trần, giá sàn hoặc giá tham chiếu theo tiêu chí trong chương trình.",
    blocks:[{kind:"table",full:true,src:"cau3_ngay_bat_thuong.csv"}]},
@@ -105,7 +105,7 @@ const sections = [
    blocks:[
     {kind:"img",full:true,src:"cau5_xu_huong.png",alt:"Biểu đồ xu hướng giá cổ phiếu cả năm"},
     {kind:"table",full:true,src:"cau5_tom_tat.csv",cap:"Tóm tắt các chỉ tiêu chính"}
-   ]}
+   ],}
 ];
 
 const tabs=document.getElementById("tabs"),panel=document.getElementById("panel");
